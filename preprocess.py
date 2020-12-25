@@ -308,7 +308,7 @@ def read_annotation_file(files:List[str], use_iob2_format=True):
             for label in labels:
                 #dataturks indices are both inclusive [start, end] but spacy is not [start, end)
                 # entities.append((point['start'], point['end'] + 1 ,label))
-                if label in ['Skills', 'UNKNOWN']:
+                if label in ['Skills', 'UNKNOWN', 'Graduation Year']:
                     continue
                 if label not in tag_master:
                     tag_master.append(label)
