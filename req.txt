@@ -1,0 +1,4 @@
+seqeval==0.0.12
+transformers==3.1.0
+transformers==3.1.0
+spacy
