@@ -6,6 +6,7 @@ from os import path
 import tensorflow as tf
 import math
 from sklearn.model_selection import train_test_split
+import numpy as np
 
 seed = 232
 model_name = 'google/electra-base-discriminator'
@@ -63,21 +64,34 @@ def build_model(num_labels, use_dropout=True, dropout_rate=0.15):
     keras_model = tf.keras.Model(inputs= model_inputs, outputs = model_op)
     
 
-features, class_map = read_data([r'traindata.json', r'testdata.json'])
-
-features_train,features_test = train_test_split(features, test_size=0.15, shuffle=True)
-
-ds_train = create_tensorflow_dataset(features_train)\
-            .shuffle(len(features_train), seed=seed)\
-            .batch(batch_size, drop_remainder=False)\
-            .prefetch(tf.data.experimental.AUTOTUNE)
-
-ds_test = create_tensorflow_dataset(features_test)\
-    .batch(batch_size, drop_remainder=False)\
-    .prefetch(tf.data.experimental.AUTOTUNE)
-
-steps_per_epoch = math.ceil(len(features_train)/batch_size)
-validation_steps = math.ceil(len(features_test)/batch_size)
-model = build_model(len(class_map, True, dropout = 0.25))
-
-print('here')
+def run_examples(texts, model, tokenizer, class_map:Dict, saved_model_format:bool = True):
+    features_2d = preprocess_for_inferencing(texts, tokenizer)
+    attention_mask, input_ids, token_type_ids = [],[],[]
+    for feature_index, features in enumerate(features_2d):
+        attention_mask.append(features.attention_mask)
+        input_ids.append(features.attention_mask)
+        token_type_ids.append(features.attention_mask)
+    attention_mask = np.array(attention_mask).astype('int32')
+    input_ids = np.array(input_ids).astype('int32')
+    token_type_ids = np.array(token_type_ids).astype('int32')
+    model_inputs = []
+    if "token_type_ids" in tokenizer.model_input_names:
+        model_inputs = [input_ids, attention_mask, token_type_ids]
+    else:
+        model_inputs = [input_ids, attention_mask]
+    if saved_model_format:
+        predictions = model(model_inputs, training = False)
+    else:
+        predictions = model.predict(model_inputs)
+    predictions = np.argmax(predictions, axis=-1)
+    result = []
+    for i,text in enumerate(texts):
+        tokens, labels = [], []
+        for j in range(1,predictions.shape[1]-1):
+            if attention_mask[i,j]==1:
+                lbl = class_map[predictions[i,j]]
+                tk = tokenizer.convert_ids_to_tokens(input_ids[i,j].item())
+                tokens.append(tk)
+                labels.append(lbl)
+        result.append(TFNERResult(tokens, labels, text))
+    return result

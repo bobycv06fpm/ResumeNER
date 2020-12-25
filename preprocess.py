@@ -340,6 +340,48 @@ def read_annotation_file(files:List[str], use_iob2_format=True):
     print('Total Samples Processed:', len(examples))
     print('labels skipped:', labels_skipped)
     return examples, all_labels, class_list
+
+def preprocess_for_inferencing(model_meta, texts:List[str], tokenizer):
+    special_tokens_count = tokenizer.num_special_tokens_to_add()
+    max_allowed_tokens = model_meta.max_seq_length - special_tokens_count - int(model_meta.sep_token_extra)
+    features_2d = []
+    for text in texts:
+        text = parse_text(text)
+        last_count = 0
+        context_subsets = []
+        current_subset = []
+        sentences = sent_tokenize(text)
+        for sentence in sentences:
+            sent_tokens = []
+            for word in tokenize(sentence):
+                word_tokens = tokenizer.tokenize(word)
+                if len(word_tokens) > 0:
+                    sent_tokens.extend(word_tokens)
+            num_tokens = len(sent_tokens)
+            if last_count + num_tokens >= max_allowed_tokens:
+                if len(current_subset)==0:
+                    #meaning a single sentence is exceeding the max_seq_len of the model
+                    context_subsets.append(sent_tokens)
+                else:
+                    context_subsets.append(current_subset)
+                    current_subset = sent_tokens
+                    last_count = num_tokens
+            else:
+                last_count += num_tokens
+                current_subset.extend(sent_tokens)
+        if len(current_subset)>0:
+            context_subsets.append(current_subset)
+        input_features = []
+        for context_subset in context_subsets:
+            input_feature = convert_tokens_to_features(
+                    tokenizer = tokenizer,
+                    model_meta = model_meta,
+                    feature_tokens = context_subset,
+                    feature_labels = []
+                )
+            input_features.append(input_feature)
+        features_2d.append(input_features)
+    return features_2d
             
 if __name__ == "__main__":
     
