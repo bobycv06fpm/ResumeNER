@@ -5,6 +5,7 @@ from transformers import ElectraTokenizer, TFElectraModel
 from os import path
 import tensorflow as tf
 import math
+from sklearn.model_selection import train_test_split
 
 seed = 232
 model_name = 'google/electra-base-discriminator'
@@ -62,8 +63,9 @@ def build_model(num_labels, use_dropout=True, dropout_rate=0.15):
     keras_model = tf.keras.Model(inputs= model_inputs, outputs = model_op)
     
 
-features_train, class_map = read_data(r'traindata.json')
-features_test, class_map = read_data(r'testdata.json')
+features, class_map = read_data([r'traindata.json', r'testdata.json'])
+
+features_train,features_test = train_test_split(features, test_size=0.15, shuffle=True)
 
 ds_train = create_tensorflow_dataset(features_train)\
             .shuffle(len(features_train), seed=seed)\

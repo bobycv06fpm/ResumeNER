@@ -287,46 +287,49 @@ def convert_examples_to_features(
             features.append(input_features)
     return features
 
-def read_annotation_file(filepath, use_iob2_format=True):
+def read_annotation_file(files:List[str], use_iob2_format=True):
     examples = []
     all_labels = []
     tag_master = []
     labels_skipped = 0
-    with open(filepath, 'r') as f:
-        for line in f.readlines():
-            data = json.loads(line)
-            text = data['content']
-            annotations = []
-            for annotation in data['annotation']:
-                point = annotation['points'][0]
-                labels = annotation['label']
-                if not isinstance(labels, list):
-                    labels = [labels]
-                for label in labels:
-                    #dataturks indices are both inclusive [start, end] but spacy is not [start, end)
-                    # entities.append((point['start'], point['end'] + 1 ,label))
-                    if label in ['Skills', 'UNKNOWN']:
-                        continue
-                    if label not in tag_master:
-                        tag_master.append(label)
-                    label_text = point['text']
-                    label_si = point['start']
-                    label_ei = point['end']+1
-                    use_annotation = True
-                    if text[label_si:label_ei]!=label_text or label_ei>=len(text)+1:
-                        use_annotation = False
-                        if label_text in text:
-                            label_si = text.index(label_text)
-                            label_ei = label_si + len(label_text)
-                            use_annotation = True
-                    if use_annotation:
-                        annotations.append(Annotation(label_si, label_ei, label_text, label))
-                    else:
-                        labels_skipped += 1
-                        print('annotation skipped due to inconsitent indices..')
-            if len(annotations) >0 and len(text.strip())>0:
-                examples.append(text)
-                all_labels.append(annotations)
+    lines = []
+    for file in files:
+        with open(file, 'r') as f:
+            lines.extend(f.readlines())
+    for line in lines:
+        data = json.loads(line)
+        text = data['content']
+        annotations = []
+        for annotation in data['annotation']:
+            point = annotation['points'][0]
+            labels = annotation['label']
+            if not isinstance(labels, list):
+                labels = [labels]
+            for label in labels:
+                #dataturks indices are both inclusive [start, end] but spacy is not [start, end)
+                # entities.append((point['start'], point['end'] + 1 ,label))
+                if label in ['Skills', 'UNKNOWN']:
+                    continue
+                if label not in tag_master:
+                    tag_master.append(label)
+                label_text = point['text']
+                label_si = point['start']
+                label_ei = point['end']+1
+                use_annotation = True
+                if text[label_si:label_ei]!=label_text or label_ei>=len(text)+1:
+                    use_annotation = False
+                    if label_text in text:
+                        label_si = text.index(label_text)
+                        label_ei = label_si + len(label_text)
+                        use_annotation = True
+                if use_annotation:
+                    annotations.append(Annotation(label_si, label_ei, label_text, label))
+                else:
+                    labels_skipped += 1
+                    print('annotation skipped due to inconsitent indices..')
+        if len(annotations) >0 and len(text.strip())>0:
+            examples.append(text)
+            all_labels.append(annotations)
         class_list = ['O']
     for tag_name in tag_master:
         if use_iob2_format:
@@ -343,7 +346,7 @@ if __name__ == "__main__":
     use_iob2_format = True
     model_meta = ModelMeta()
     model_meta.model_type = 'bert'
-    examples, annotations_list, class_list = read_annotation_file(r'traindata.json')
+    examples, annotations_list, class_list = read_annotation_file([r'traindata.json', r'testdata.json'])
     converted_examples = convert_platform_data_to_ner(examples, annotations_list, class_list, use_iob2_format = use_iob2_format)
     class_map = {i:label for i, label in enumerate(class_list)}
     features = convert_examples_to_features(converted_examples,class_list,tokenizer,use_iob2_format = use_iob2_format)
